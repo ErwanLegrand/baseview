@@ -32,12 +32,14 @@ opengl = [
     "objc2-app-kit/NSOpenGLView",
     "objc2-app-kit/objc2-open-gl"
 ]
+accessibility = ["dep:accesskit", "dep:accesskit_windows", "dep:accesskit_macos"]
 
 [dependencies]
 keyboard-types = { version = "0.8.3" }
 raw-window-handle = "0.6.2"
 dpi = "0.1.2"
 tracing = { version = "0.1", optional = true }
+accesskit = { version = "0.24.1", optional = true }
 
 [target.'cfg(target_os="linux")'.dependencies]
 x11rb = { version = "0.13.2", features = ["cursor", "resource_manager", "allow-unsafe-code", "dl-libxcb"], default-features = false }
@@ -69,6 +71,7 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 windows-core = { version = "0.62.2" }
+accesskit_windows = { version = "0.34.0", optional = true }
 
 [target.'cfg(target_os="macos")'.dependencies]
 objc2 = "0.6.4"
@@ -91,6 +94,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSWindow",
     "objc2-core-foundation"
 ] }
+accesskit_macos = { version = "0.26.3", optional = true }
 
 [workspace]
 members = ["examples/cursors", "examples/open_parented", "examples/open_window", "examples/plugin_clack", "examples/render_femtovg", "examples/render_wgpu"]

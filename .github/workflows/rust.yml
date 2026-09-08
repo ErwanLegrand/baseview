@@ -14,6 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       RUSTFLAGS: -D warnings
+      FEATURES: ${{ matrix.toolchain == 'msrv' && '--features opengl' || '--all-features' }}
     steps:
       - uses: actions/checkout@v6
       - name: Install rust stable
@@ -24,11 +25,11 @@ jobs:
       - name: Build Default
         run: cargo build -p baseview --verbose
       - name: Build All Features
-        run: cargo build -p baseview --all-features --verbose
+        run: cargo build -p baseview ${{ env.FEATURES }} --verbose
       - name: Run tests
-        run: cargo test -p baseview --all-features --verbose
+        run: cargo test -p baseview ${{ env.FEATURES }} --verbose
       - name: Check Release
-        run: cargo check -p baseview --all-features --verbose --release
+        run: cargo check -p baseview ${{ env.FEATURES }} --verbose --release
       - name: Build examples
         if: matrix.toolchain != 'msrv'
         run: cargo build --workspace --all-targets --verbose

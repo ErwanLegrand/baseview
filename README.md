@@ -7,6 +7,11 @@ otherwise gets out of your way so you can write plugin UIs.
 
 Interested in learning more about the project? Join us on [discord](https://discord.gg/b3hjnGw), channel `#baseview`.
 
+## Requirements
+
+The optional `accessibility` feature (AccessKit screen reader support on Windows and macOS)
+requires Rust 1.85 or later. baseview's own MSRV without that feature is 1.82.
+
 ## Contributing
 
 Contributions are very much welcomed! As long as they comply to the policy and licensing requirements

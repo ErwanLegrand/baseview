@@ -25,6 +25,13 @@ pub use mouse_cursor::MouseCursor;
 pub use settings::*;
 pub use window::*;
 
+/// A re-export of the `accesskit` crate this version of baseview was built against.
+///
+/// Use it to build the [`accesskit::TreeUpdate`] values passed to
+/// [`WindowContext::update_accessibility_tree`], so the types are guaranteed to match.
+#[cfg(feature = "accessibility")]
+pub use accesskit;
+
 #[allow(unused, reason = "Some platforms may not use all exports from this mod")]
 pub(crate) use tracing::*;
 
