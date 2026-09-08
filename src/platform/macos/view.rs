@@ -18,6 +18,8 @@ use crate::{
 use objc2::__framework_prelude::Retained;
 use objc2::rc::Weak;
 use objc2::runtime::{NSObjectProtocol, ProtocolObject};
+#[cfg(feature = "accessibility")]
+use objc2::Message;
 use objc2::{msg_send, AllocAnyThread, ClassType, MainThreadMarker};
 use objc2_app_kit::{
     NSApplication, NSDragOperation, NSDraggingInfo, NSEvent, NSFilenamesPboardType, NSTrackingArea,
@@ -76,6 +78,10 @@ pub(crate) struct BaseviewView {
     host: Host,
     pub(crate) cursor_manager: CursorManager,
 
+    #[cfg(feature = "accessibility")]
+    pub(crate) accessibility: RefCell<Option<accesskit_macos::SubclassingAdapter>>,
+    #[cfg(feature = "accessibility")]
+    pub(crate) accessibility_queue: crate::accessibility::AccessibilityQueue,
     #[cfg(feature = "opengl")]
     pub(crate) gl_context: std::cell::OnceCell<super::gl::GlContext>,
 }
@@ -93,6 +99,10 @@ impl BaseviewView {
             1.0,
             SizingStrategy::from_settings(&init.settings),
         ));
+        // The adapter's callbacks all arrive on the main thread, but never at a point where
+        // re-entering the handler is safe, so they are queued and drained on the next frame.
+        #[cfg(feature = "accessibility")]
+        let accessibility_queue = crate::accessibility::AccessibilityQueue::new(|| {});
 
         let inner = BaseviewView {
             mtm,
@@ -106,6 +116,10 @@ impl BaseviewView {
             host: init.host,
             lifetime_tied_to_app: None.into(),
             cursor_manager: CursorManager::new(),
+            #[cfg(feature = "accessibility")]
+            accessibility: RefCell::new(None),
+            #[cfg(feature = "accessibility")]
+            accessibility_queue,
 
             #[cfg(feature = "opengl")]
             gl_context: std::cell::OnceCell::new(),
@@ -120,6 +134,23 @@ impl BaseviewView {
             view.state.size.set(view.view.size());
 
             Self::apply_size_constraints(view);
+            // Must happen before the view is shown or focused for the first time.
+            #[cfg(feature = "accessibility")]
+            {
+                let view_ptr = Retained::as_ptr(&view.view.retain()) as *mut core::ffi::c_void;
+
+                // SAFETY: `view_ptr` is a valid, retained NSView that outlives the adapter, which
+                // is dropped with this view.
+                let adapter = unsafe {
+                    accesskit_macos::SubclassingAdapter::new(
+                        view_ptr,
+                        view.accessibility_queue.activation_handler(),
+                        view.accessibility_queue.action_handler(),
+                    )
+                };
+
+                view.accessibility.replace(Some(adapter));
+            }
 
             #[cfg(feature = "opengl")]
             if let Some(gl_config) = init.settings.gl_config {
@@ -249,9 +280,27 @@ impl BaseviewView {
     }
 
     fn trigger_frame(this: ViewRef<Self>) {
+        #[cfg(feature = "accessibility")]
+        for event in this.accessibility_queue.drain() {
+            Self::trigger_event(this, Event::Accessibility(event));
+        }
+
         if let Some(Err(e)) = this.window_handler.use_handler(|h| h.on_frame()) {
             warn!("Error while rendering frame: {}", e);
             Self::close(this, false);
+        }
+    }
+
+    #[cfg(feature = "accessibility")]
+    fn update_accessibility_focus(this: ViewRef<Self>, is_focused: bool) {
+        let events = {
+            let Ok(mut adapter) = this.accessibility.try_borrow_mut() else { return };
+            let Some(adapter) = adapter.as_mut() else { return };
+            adapter.update_view_focus_state(is_focused)
+        };
+
+        if let Some(events) = events {
+            events.raise();
         }
     }
 
@@ -287,6 +336,8 @@ impl ViewImpl for BaseviewView {
         };
 
         if window.isKeyWindow() {
+            #[cfg(feature = "accessibility")]
+            Self::update_accessibility_focus(this, true);
             Self::trigger_event(this, Event::Window(WindowEvent::Focused));
         }
 
@@ -294,6 +345,8 @@ impl ViewImpl for BaseviewView {
     }
 
     fn resign_first_responder(this: ViewRef<Self>) -> bool {
+        #[cfg(feature = "accessibility")]
+        Self::update_accessibility_focus(this, false);
         Self::trigger_event(this, Event::Window(WindowEvent::Unfocused));
         true
     }
@@ -550,9 +603,13 @@ impl ViewImpl for BaseviewView {
             return;
         }
 
+        let is_key_window = window.isKeyWindow();
+        #[cfg(feature = "accessibility")]
+        Self::update_accessibility_focus(this, is_key_window);
+
         Self::trigger_event(
             this,
-            Event::Window(if window.isKeyWindow() {
+            Event::Window(if is_key_window {
                 WindowEvent::Focused
             } else {
                 WindowEvent::Unfocused

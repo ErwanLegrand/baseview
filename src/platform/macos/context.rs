@@ -107,7 +107,19 @@ impl WindowContext {
 
     #[cfg(feature = "accessibility")]
     pub fn update_accessibility_tree(&self, update: accesskit::TreeUpdate) {
-        // Wired up in a later commit.
-        let _ = update;
+        let Some(view) = self.view.load() else { return };
+        let Some(view) = view.inner_ref() else { return };
+
+        let events = {
+            let Ok(mut adapter) = view.accessibility.try_borrow_mut() else { return };
+            let Some(adapter) = adapter.as_mut() else { return };
+            adapter.update_if_active(|| update)
+        };
+
+        // Raised only after the borrow is released: raising calls into NSAccessibility, which can
+        // call back into the adapter.
+        if let Some(events) = events {
+            events.raise();
+        }
     }
 }
