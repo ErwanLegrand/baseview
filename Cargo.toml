@@ -103,7 +103,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
 accesskit_macos = { version = "0.26.3", optional = true }
 
 [workspace]
-members = ["examples/cursors", "examples/open_parented", "examples/open_window", "examples/plugin_clack", "examples/render_femtovg", "examples/render_wgpu"]
+members = ["examples/accessibility", "examples/cursors", "examples/open_parented", "examples/open_window", "examples/plugin_clack", "examples/render_femtovg", "examples/render_wgpu"]
 
 [lints.clippy]
 missing-safety-doc = "allow"

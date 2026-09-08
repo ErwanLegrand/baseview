@@ -12,6 +12,12 @@ Interested in learning more about the project? Join us on [discord](https://disc
 The optional `accessibility` feature (AccessKit screen reader support on Windows and macOS)
 requires Rust 1.85 or later. baseview's own MSRV without that feature is 1.82.
 
+## Features
+
+- `accessibility` — screen reader support via [AccessKit](https://accesskit.dev) on Windows and
+  macOS. Your `WindowHandler` receives `Event::Accessibility` and publishes trees with
+  `WindowContext::update_accessibility_tree`. Not yet implemented on X11. Requires Rust 1.85.
+
 ## Contributing
 
 Contributions are very much welcomed! As long as they comply to the policy and licensing requirements
