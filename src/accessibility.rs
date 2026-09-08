@@ -30,10 +30,7 @@ impl AccessibilityQueue {
     /// on the window thread soon afterwards.
     pub fn new(wake: impl Fn() + Send + Sync + 'static) -> Self {
         Self {
-            inner: Arc::new(Inner {
-                events: Mutex::new(VecDeque::new()),
-                wake: Box::new(wake),
-            }),
+            inner: Arc::new(Inner { events: Mutex::new(VecDeque::new()), wake: Box::new(wake) }),
         }
     }
 
