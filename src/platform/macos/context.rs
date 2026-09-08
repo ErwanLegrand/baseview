@@ -104,4 +104,10 @@ impl WindowContext {
     pub fn platform_handle(&self) -> PlatformHandle {
         PlatformHandle { inner: MainThreadBound::new(self.view.clone(), self.mtm) }
     }
+
+    #[cfg(feature = "accessibility")]
+    pub fn update_accessibility_tree(&self, update: accesskit::TreeUpdate) {
+        // Wired up in a later commit.
+        let _ = update;
+    }
 }

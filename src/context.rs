@@ -64,6 +64,22 @@ impl WindowContext {
         self.inner.size()
     }
 
+    /// Delivers an accessibility tree update to the platform's assistive technology API.
+    ///
+    /// Call this from [`WindowHandler::on_frame`](crate::WindowHandler::on_frame) whenever your UI
+    /// framework produces an update, after having received
+    /// [`AccessibilityEvent::Enabled`](crate::AccessibilityEvent::Enabled).
+    ///
+    /// This is a no-op when no assistive technology is active.
+    ///
+    /// # Platform compatibility notes
+    ///
+    /// On X11, this is always a no-op.
+    #[cfg(feature = "accessibility")]
+    pub fn update_accessibility_tree(&self, update: accesskit::TreeUpdate) {
+        self.inner.update_accessibility_tree(update);
+    }
+
     /// Returns a new lightweight [`PlatformHandle`] to this window.
     ///
     /// It can be sent across threads to access the underlying platform window and display connection.

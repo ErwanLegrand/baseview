@@ -287,6 +287,12 @@ impl WindowInner {
         WindowSize::from_physical(self.window_size.get().cast(), self.scaling_factor.get())
     }
 
+    /// Accessibility is not implemented on X11, so this does nothing.
+    #[cfg(feature = "accessibility")]
+    pub fn update_accessibility_tree(&self, update: accesskit::TreeUpdate) {
+        let _ = update;
+    }
+
     pub fn raw_id(&self) -> xproto::Window {
         self.xcb_window.id().get()
     }

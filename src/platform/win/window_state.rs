@@ -120,6 +120,12 @@ impl WindowState {
         let Some(hwnd) = NonZeroIsize::new(self.hwnd.as_raw() as _) else { unreachable!() };
         PlatformHandle { hwnd }
     }
+
+    #[cfg(feature = "accessibility")]
+    pub fn update_accessibility_tree(&self, update: accesskit::TreeUpdate) {
+        // Wired up in a later commit.
+        let _ = update;
+    }
 }
 
 pub struct WindowSharedState {

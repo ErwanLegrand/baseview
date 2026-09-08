@@ -123,6 +123,30 @@ pub enum Event {
     Mouse(MouseEvent),
     Keyboard(KeyboardEvent),
     Window(WindowEvent),
+    /// An assistive technology interacted with the window.
+    #[cfg(feature = "accessibility")]
+    Accessibility(AccessibilityEvent),
+}
+
+/// An accessibility event, sent when an assistive technology interacts with the window.
+///
+/// # Platform compatibility notes
+///
+/// These events are never emitted on X11, where accessibility is not yet implemented.
+#[cfg(feature = "accessibility")]
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum AccessibilityEvent {
+    /// An assistive technology has attached to this window.
+    ///
+    /// Enable accessibility in your UI framework and request a redraw. The resulting tree must be
+    /// delivered with [`WindowContext::update_accessibility_tree`](crate::WindowContext::update_accessibility_tree),
+    /// as soon as the next frame allows.
+    ///
+    /// There is no matching "disabled" event: Windows and macOS never report deactivation.
+    Enabled,
+    /// An assistive technology asked the UI to perform an action.
+    ActionRequested(accesskit::ActionRequest),
 }
 
 #[non_exhaustive]
