@@ -12,6 +12,8 @@ mod tracing;
 mod window;
 
 pub(crate) mod platform;
+#[cfg(feature = "accessibility")]
+pub(crate) mod accessibility;
 
 #[cfg(feature = "opengl")]
 pub mod gl;
