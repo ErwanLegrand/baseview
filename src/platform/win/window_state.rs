@@ -28,10 +28,41 @@ pub(crate) struct WindowState {
 
     #[cfg(feature = "opengl")]
     pub gl_context: std::cell::OnceCell<super::gl::GlContext>,
+    #[cfg(feature = "accessibility")]
+    pub accessibility: RefCell<accesskit_windows::Adapter>,
+    #[cfg(feature = "accessibility")]
+    pub accessibility_queue: crate::accessibility::AccessibilityQueue,
 }
 
 impl WindowState {
     pub fn new(hwnd: HWnd, user32: ExtendedUser32, shared: Rc<WindowSharedState>) -> Self {
+        #[cfg(feature = "accessibility")]
+        let accessibility_queue = {
+            let raw_hwnd = hwnd.as_raw() as isize;
+
+            crate::accessibility::AccessibilityQueue::new(move || {
+                // SAFETY: posting a message to a window is thread-safe; if the window is already
+                // gone the call simply fails.
+                unsafe {
+                    PostMessageW(
+                        raw_hwnd as _,
+                        crate::platform::win::window::BV_ACCESSIBILITY_ACTION,
+                        0,
+                        0,
+                    );
+                }
+            })
+        };
+
+        // AccessKit requires the adapter to exist before the first `WM_GETOBJECT`; creating it
+        // lazily inside that message causes nested messages and assistive technologies failing to
+        // detect UIA support. See https://github.com/AccessKit/accesskit/issues/37.
+        #[cfg(feature = "accessibility")]
+        let accessibility = RefCell::new(accesskit_windows::Adapter::new(
+            windows::Win32::Foundation::HWND(hwnd.as_raw()),
+            false,
+            accessibility_queue.action_handler(),
+        ));
         Self {
             hwnd,
             keyboard_state: RefCell::new(KeyboardState::new()),
@@ -43,6 +74,10 @@ impl WindowState {
 
             #[cfg(feature = "opengl")]
             gl_context: std::cell::OnceCell::new(),
+            #[cfg(feature = "accessibility")]
+            accessibility,
+            #[cfg(feature = "accessibility")]
+            accessibility_queue,
         }
     }
 
@@ -123,8 +158,16 @@ impl WindowState {
 
     #[cfg(feature = "accessibility")]
     pub fn update_accessibility_tree(&self, update: accesskit::TreeUpdate) {
-        // Wired up in a later commit.
-        let _ = update;
+        let events = {
+            let Ok(mut adapter) = self.accessibility.try_borrow_mut() else { return };
+            adapter.update_if_active(|| update)
+        };
+
+        // Raised only after the borrow above is released: raising re-enters UI Automation, which
+        // can call back into the adapter.
+        if let Some(events) = events {
+            events.raise();
+        }
     }
 }
 

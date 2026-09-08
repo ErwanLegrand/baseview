@@ -11,6 +11,8 @@ use std::num::NonZeroUsize;
 use windows_sys::Win32::Foundation::POINT;
 
 pub(crate) const BV_WINDOW_MUST_CLOSE: u32 = WM_USER + 1;
+#[cfg(feature = "accessibility")]
+pub(crate) const BV_ACCESSIBILITY_ACTION: u32 = WM_USER + 2;
 
 use super::drop_target::DropTarget;
 use super::*;
@@ -381,6 +383,36 @@ unsafe fn wnd_proc_inner(
 ) -> Option<LRESULT> {
     let window_state = &window_bv.window_state;
     match msg {
+        #[cfg(feature = "accessibility")]
+        WM_GETOBJECT => {
+            let result = {
+                let Ok(mut adapter) = window_state.accessibility.try_borrow_mut() else {
+                    return None;
+                };
+                let mut activation_handler = window_state.accessibility_queue.activation_handler();
+
+                adapter.handle_wm_getobject(
+                    windows::Win32::Foundation::WPARAM(wparam),
+                    windows::Win32::Foundation::LPARAM(lparam),
+                    &mut activation_handler,
+                )
+            };
+
+            // `None` means AccessKit declined the message; falling through to DefWindowProc is
+            // the documented behaviour.
+            result.map(|result| {
+                let lresult: windows::Win32::Foundation::LRESULT = result.into();
+                lresult.0 as LRESULT
+            })
+        }
+        #[cfg(feature = "accessibility")]
+        BV_ACCESSIBILITY_ACTION => {
+            for event in window_state.accessibility_queue.drain() {
+                window_bv.handle_event(Event::Accessibility(event));
+            }
+
+            Some(0)
+        }
         WM_MOUSEMOVE => {
             if window_state.mouse_was_outside_window.get() {
                 // this makes Windows track whether the mouse leaves the window.
@@ -532,10 +564,38 @@ unsafe fn wnd_proc_inner(
         WM_SETFOCUS => {
             window_bv.handle_event(Event::Window(WindowEvent::Focused));
 
+            #[cfg(feature = "accessibility")]
+            {
+                let events = {
+                    let Ok(mut adapter) = window_state.accessibility.try_borrow_mut() else {
+                        return None;
+                    };
+                    adapter.update_window_focus_state(true)
+                };
+
+                if let Some(events) = events {
+                    events.raise();
+                }
+            }
+
             None
         }
         WM_KILLFOCUS => {
             window_bv.handle_event(Event::Window(WindowEvent::Unfocused));
+
+            #[cfg(feature = "accessibility")]
+            {
+                let events = {
+                    let Ok(mut adapter) = window_state.accessibility.try_borrow_mut() else {
+                        return None;
+                    };
+                    adapter.update_window_focus_state(false)
+                };
+
+                if let Some(events) = events {
+                    events.raise();
+                }
+            }
 
             None
         }
